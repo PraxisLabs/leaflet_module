@@ -408,15 +408,15 @@ function leaflet_apply_map_settings(&$map, &$features, $map_settings, $entity_ty
 
         $icon_variables['attributes'] = array();
         if (!empty($settings['icon']['iconSize']['x'])) {
-          $icon_variables['attributes']['width'] = $settings['icon']['iconSize']['x'];
+          $img_optional_fields .= ' width="'.$settings['icon']['iconSize']['x'].'"';
         }
         if (!empty($settings['icon']['iconSize']['y'])) {
-          $icon_variables['attributes']['height'] = $settings['icon']['iconSize']['y'];
+          $img_optional_fields .= ' height="'.$settings['icon']['iconSize']['y'].'"';
         }
       }
 
       // Render the image field.
-      $feat['html'] = theme('image_style', $icon_variables);
+      $feat['html'] = '<img src="'.file_create_url($icon_variables['path']).'" '.$img_optional_fields.'>';
       $feat['html_class'] = $settings['icon']['htmlClass'];
       $feat['icon']['iconAnchor'] = $settings['icon']['iconAnchor'];
 
