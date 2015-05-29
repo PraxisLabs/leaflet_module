@@ -389,35 +389,42 @@ function leaflet_apply_map_settings(&$map, &$features, $map_settings, $entity_ty
       $feat['popup'] = $settings['popup']['text'];
     }
 
-    // Apply Icon settings:
-    if ($icon == 'html') {
-      $icon_config = array(
-        'label' => 'hidden',
-        'settings' => array(
-          'image_style' => isset($settings['icon']['iconImageStyle']) ? $settings['icon']['iconImageStyle'] : '',
-        ),
+    // Applying icon settings: html marker from image field
+    if ($icon == 'html' && isset($feat['icon_object'])) {
+
+      // Obtaining basic information to render image html.
+      $icon_variables = array(
+        'path' => $feat['icon_object']['uri'],
+        'style_name' => isset($settings['icon']['iconImageStyle']) ? $settings['icon']['iconImageStyle'] : '',
       );
-      $icon_field = field_view_field($entity_type, $feat['entity'], $settings['icon']['html'], $icon_config);
+
+      // Put height and width from settings page into the array to get rendered as
+      // html attributes in the img tag
       if (!empty($settings['icon']['iconSize']['x']) || !empty($settings['icon']['iconSize']['y'])) {
+
         // We hand the size off to the API, but the rendered HTML will dictate
         // its own size, so we override that as well.
         // @todo: actually allow the API settings to control this.
-        $feat['icon']['iconSize'] = $settings['icon']['iconSize'];
-        foreach (element_children($icon_field) as $i) {
-          if (!empty($settings['icon']['iconSize']['x'])) {
-            $icon_field[$i]['#item']['width'] = $settings['icon']['iconSize']['x'];
-            unset($icon_field[$i]['#item']['width']);
-          }
-          if (!empty($settings['icon']['iconSize']['y'])) {
-            $icon_field[$i]['#item']['height'] = $settings['icon']['iconSize']['y'];
-            unset($icon_field[$i]['#item']['width']);
-          }
+
+        $icon_variables['attributes'] = array();
+        if (!empty($settings['icon']['iconSize']['x'])) {
+          $icon_variables['attributes']['width'] = $settings['icon']['iconSize']['x'];
+        }
+        if (!empty($settings['icon']['iconSize']['y'])) {
+          $icon_variables['attributes']['height'] = $settings['icon']['iconSize']['y'];
         }
       }
-      $feat['html'] = render($icon_field);
+
+      // Render the image field.
+      $feat['html'] = theme('image_style', $icon_variables);
       $feat['html_class'] = $settings['icon']['htmlClass'];
       $feat['icon']['iconAnchor'] = $settings['icon']['iconAnchor'];
+
+      // Clean up temporary information
+      unset($feat['icon_object']);
     }
+
+    // Applying icon settings: for markers.
     if ($icon == 'marker') {
       $feat['icon'] = $settings['icon'];
       unset($feat['icon']['html']);
@@ -631,6 +638,7 @@ function leaflet_form_elements($group, $settings, $options = NULL) {
         '#description' => "It is usually preferable to leave this blank and use the image style system to size the icons. Sizes are in pixels.",
         '#type' => 'fieldset',
         '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
       );
       $form_element['iconSize']['x'] = array(
         '#title' => t('Width'),
@@ -652,6 +660,7 @@ function leaflet_form_elements($group, $settings, $options = NULL) {
         '#title' => t('Icon Anchor'),
         '#type' => 'fieldset',
         '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
         '#description' => t("The coordinates of the 'tip' of the icon (relative to its top left corner). The icon will be aligned so that this point is at the marker's geographical location."),
       );
       $form_element['iconAnchor']['x'] = array(

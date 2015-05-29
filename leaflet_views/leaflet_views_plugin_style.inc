@@ -93,13 +93,22 @@ class leaflet_views_plugin_style extends views_plugin_style {
     // Get list of fields in this view & flag available geodata fields:
     $handlers = $this->display->handler->get_handlers('field');
 
+    // Initialize and prepare data about available fields in this view.
     $fields = array();
     $fields_data = array();
+    $fields_image = array();
     foreach ($handlers as $field_id => $handler) {
+
+      // Adding fields to special array.
       $fields[$field_id] = $handler->ui_name();
 
+      // Adding geo data fields to dedicated array.
       if (!empty($handler->field_info['type']) && $handler->field_info['type'] == 'geofield') {
         $fields_data[$field_id] = $handler->ui_name();
+      }
+      // Adding image fields to dedicated array.
+      if (!empty($handler->field_info['type']) && $handler->field_info['type'] == 'image') {
+        $fields_image[$field_id] = $handler->ui_name();
       }
     }
 
@@ -207,7 +216,8 @@ class leaflet_views_plugin_style extends views_plugin_style {
     );
 
     $form['zoom'] = leaflet_form_elements('zoom', $this->options);
-    $form['icon'] = leaflet_form_elements('icon', $this->options, array('path' => 'style_options', 'fields' => $fields));
+    $form['icon'] = leaflet_form_elements('icon', $this->options, array('path' => 'style_options', 'fields' => $fields_image));
+    $form['markers'] = leaflet_form_elements('markers', $this->options, array('path' => 'style_options', 'fields' => $fields));
     $form['vector_display'] = leaflet_form_elements('vector_display', $this->options, array('path' => 'style_options'));
     $form['tokens'] = leaflet_form_elements('tokens', $this->options, array('weight' => 998, 'entity_type' => $this->entity_type));
   }
@@ -225,37 +235,59 @@ class leaflet_views_plugin_style extends views_plugin_style {
    * Renders view.
    */
   function render() {
+
     if (!empty($this->view->live_preview)) {
       return t('No preview available');
     }
     $data = array();
     $map = leaflet_map_get_info($this->options['map']);
-    // Is there a geofield selected?
-    if ($this->options['data_source']) {
-      $this->render_fields($this->view->result);
-      foreach ($this->view->result as $id => $result) {
-        $geofield = $this->get_field_value($id, $this->options['data_source']);
 
+    // Only proceed if a geofield has been selected.
+    if ($this->options['data_source']) {
+
+      // Render fields
+      $this->render_fields($this->view->result);
+
+      foreach ($this->view->result as $id => $result) {
+
+        // Obtain geo information
+        $geofield = $this->get_field_value($id, $this->options['data_source']);
         if (!empty($geofield)) {
           $entity = FALSE;
+
           // Render the entity with the selected view mode:
           if ($this->options['description_field'] === '#rendered_entity' && is_object($result)) {
             $entity = entity_load_single($this->entity_type, $result->{$this->entity_info['entity keys']['id']});
             $build = entity_view($this->entity_type, array($entity), $this->options['view_mode']);
             $description = drupal_render($build);
           }
+
           // Normal rendering via fields:
           elseif ($this->options['description_field']) {
             $description = $this->rendered_fields[$id][$this->options['description_field']];
           }
 
+          // Obtain coordinates as needed by leaflet.
           $points = leaflet_process_geofield($geofield);
+
           // Attach pop-ups if we have rendered into $description:
           if (isset($description)) {
             foreach ($points as &$point) {
               $point['popup'] = $description;
             }
           }
+
+          // Adding icon information to the points array when the point icon is set to field (html DivIcon).
+          if ($this->options['icon']['iconType'] == 'html') {
+            $icon_full_name = 'field_' . $this->options['icon']['html'];
+            $icon_object = $this->view->result[$id]->{$icon_full_name};
+            if (!empty($icon_object)) {
+              foreach ($points as &$point) {
+                $point['icon_object'] = $icon_object[0]['raw'];
+              }
+            }
+          }
+
           // Attach also titles & entities, they might be used later on.
           if ($this->options['name_field']) {
             foreach ($points as &$point) {
@@ -265,6 +297,7 @@ class leaflet_views_plugin_style extends views_plugin_style {
               }
             }
           }
+
           // Let modules modify the points data.
           drupal_alter('leaflet_views_alter_points_data', $result, $points);
           // Merge these points into the $data array for map rendering:
