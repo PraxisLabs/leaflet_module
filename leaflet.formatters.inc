@@ -400,6 +400,7 @@ function leaflet_apply_map_settings(&$map, &$features, $map_settings, $entity_ty
 
       // Put height and width from settings page into the array to get rendered as
       // html attributes in the img tag
+      $img_optional_fields = '';
       if (!empty($settings['icon']['iconSize']['x']) || !empty($settings['icon']['iconSize']['y'])) {
 
         // We hand the size off to the API, but the rendered HTML will dictate
